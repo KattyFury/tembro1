@@ -52,7 +52,7 @@ jobs:
         env:
           MODE: live
           TEMPO_BIN: tempo request
-          BOT_NAME: ${{ github.event.repository.name }}
+          BOT_NAME: ${{ vars.BOT_NAME || github.event.repository.name }}
           # Chạy tay (Run workflow) thì bỏ qua khung giờ; cron vẫn theo 7–22h VN
           FORCE_ACTIVE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
           DAILY_CAP: ${{ vars.DAILY_CAP || '0.16' }}
