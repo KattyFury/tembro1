@@ -15,6 +15,7 @@ const __dir = path.dirname(fileURLToPath(import.meta.url));
 
 // ---------- Cấu hình ----------
 const MODE = (process.env.MODE || "mock").toLowerCase();
+const BOT_NAME = process.env.BOT_NAME || "tempo-runner";
 const TEMPO_BIN = process.env.TEMPO_BIN || "tempo-request";
 const PRIVATE_KEY = process.env.TEMPO_PRIVATE_KEY || "";        // rỗng = dùng ví đã login sẵn (VPS)
 const ANTHROPIC_URL = "https://anthropic.mpp.tempo.xyz/v1/messages";
@@ -59,6 +60,18 @@ function logLine(service, request, ok) {
   const line = `${vnStamp()} – ${service} – ${request} – ${ok ? "Thành công" : "Thất bại"}`;
   fs.appendFileSync(LOG_FILE, line + "\n");
   console.log("LOG> " + line);
+}
+
+// Gửi 1 dòng tóm tắt vào Telegram (nếu có TELEGRAM_TOKEN + CHAT_ID). Best-effort, dùng curl (đồng bộ).
+function sendTelegram(text) {
+  const tok = process.env.TELEGRAM_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
+  if (!tok || !chat) return;
+  try {
+    execFileSync("curl", ["-s", "-m", "15", "-X", "POST",
+      `https://api.telegram.org/bot${tok}/sendMessage`,
+      "--data-urlencode", `chat_id=${chat}`,
+      "--data-urlencode", `text=${text}`], { stdio: "ignore" });
+  } catch {}
 }
 
 // ---------- State: strikes & spend ----------
@@ -199,9 +212,11 @@ function runOnce() {
   saveStrikes(strikes);
 
   // Cập nhật chi tiêu
-  spend.spent = Math.round((spend.spent + (r.cost || 0) + (brainCost || 0)) * 1e6) / 1e6;
+  const cost = (r.cost || 0) + (brainCost || 0);
+  spend.spent = Math.round((spend.spent + cost) * 1e6) / 1e6;
   saveSpend(spend);
-  console.log(`[spend] Lượt này ~$${((r.cost || 0) + (brainCost || 0)).toFixed(5)} | Hôm nay $${spend.spent.toFixed(5)}/$${DAILY_CAP}`);
+  console.log(`[spend] Lượt này ~$${cost.toFixed(5)} | Hôm nay $${spend.spent.toFixed(5)}/$${DAILY_CAP}`);
+  sendTelegram(`🤖 ${BOT_NAME}\n${svc.name} — ${note}\n${r.ok ? "✅ Thành công" : "❌ Thất bại"} · ~$${cost.toFixed(4)} · hôm nay $${spend.spent.toFixed(3)}/$${DAILY_CAP}`);
   brainCost = 0;
   return true;
 }
