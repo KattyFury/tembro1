@@ -58,5 +58,15 @@
     "maxSpend": 0.02,
     "bodyHint": "Fast text-to-image. Body: {\"prompt\": string}. Describe any creative image.",
     "mockBody": { "prompt": "a calm sunrise over rice terraces, watercolor" }
+  },
+  {
+    "id": "codex-graphql",
+    "name": "Codex (onchain data)",
+    "method": "POST",
+    "url": "https://graph.codex.io/graphql",
+    "priceHint": 0.001,
+    "maxSpend": 0.01,
+    "bodyHint": "Onchain token data via GraphQL. Body: {\"query\": string}. Example: {\"query\": \"{ getTokenPrices(inputs: [{ address: \\\"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2\\\", networkId: 1 }]) { priceUsd address } }\"}. Pick any well-known token address/networkId.",
+    "mockBody": { "query": "{ getTokenPrices(inputs: [{ address: \"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2\", networkId: 1 }]) { priceUsd address } }" }
   }
 ]
