@@ -2,7 +2,7 @@
 
 Bot tự động gọi các **dịch vụ trả phí trên Tempo (MPP)** để tạo hoạt động on-chain đều đặn — giữ ví "sống" phục vụ airdrop. Não là **OpenAI** (gọi thẳng, KHÔNG qua Tempo — không ăn vào ngân sách USDC). Chạy hoàn toàn **miễn phí trên GitHub Actions**, tự báo **Telegram**, tự ghi log về repo.
 
-Mỗi lượt: não tự chọn 1 dịch vụ trong danh sách + tự soạn yêu cầu → gọi → ghi log → báo Telegram. Có **bộ nhớ chống lặp**: không cho gọi cùng 1 dịch vụ 3 lần liên tiếp (ép tối thiểu ~1/3 số lượt phải đổi dịch vụ khác), và không cho hỏi lại nguyên văn 1 câu đã hỏi — nếu não vẫn đề xuất trùng sau khi thử lại 1 lần, bot **tự bỏ lượt đó, không tốn tiền** (bug cũ: não stateless, không nhớ gì → cứ lặp mãi 1 câu hỏi "an toàn" như "Exa Search: quantum computing" cả ngày, đã sửa bằng cơ chế này). Dịch vụ nào lỗi 3 lần thì tự bị gạch. Có trần chi tiêu/ngày để **không bao giờ vượt ngân sách** (mặc định ~$5/tháng), và tự báo Telegram khi ví sắp cạn tiền.
+Mỗi lượt: não tự chọn 1 dịch vụ trong danh sách + tự soạn yêu cầu → gọi → ghi log → báo Telegram. Có **bộ nhớ chống lặp**: 2 dịch vụ vừa dùng gần nhất bị khoá tạm (ép 3 lượt liên tiếp luôn là 3 dịch vụ khác nhau — không chỉ chặn lặp y hệt 1 dịch vụ, vì kiểu ping-pong "Exa Search ↔ Exa Answer" vẫn né được rule yếu hơn), và không cho hỏi lại nguyên văn 1 câu đã hỏi — nếu não vẫn đề xuất trùng sau khi thử lại 1 lần, bot **tự bỏ lượt đó, không tốn tiền** (bug cũ: não stateless, không nhớ gì → cứ lặp mãi 1 câu hỏi "an toàn" như "Exa Search: quantum computing" cả ngày, đã sửa bằng cơ chế này). Dịch vụ nào lỗi 3 lần thì tự bị gạch. Có trần chi tiêu/ngày để **không bao giờ vượt ngân sách** (mặc định ~$5/tháng), và tự báo Telegram khi ví sắp cạn tiền.
 
 **Số lượt/ngày là ngẫu nhiên, có thể là 0**, không chạy đều đặn cứng nhắc: mỗi ngày bot tự random 0-10 lượt. **Khung giờ hoạt động bắt buộc chọn 1 trong 2 nửa ngày (giờ VN): `0h-12h` hoặc `12h-24h`** — mỗi bot chỉ dùng đúng 1 khung, không còn dùng chung 1 khung 7h-22h cho tất cả bot nữa (để nhiều bot chạy song song trông tự nhiên hơn, không đồng loạt "thức dậy" cùng lúc).
 
@@ -151,6 +151,13 @@ MODE=mock MOCK_ITERS=1 node engine.mjs
 | Tần suất cron "gõ cửa" | sửa `cron` trong `.github/workflows/run.yml` (giờ UTC = VN − 7) — gõ càng dày thì bot càng dễ bắt trúng đủ số mốc ngẫu nhiên trong ngày |
 
 Tìm thêm dịch vụ rẻ: `tempo wallet services --search <từ khoá>` hoặc https://mpp.dev/services
+
+> ⚠️ **Trước khi thêm 1 dịch vụ mới vào `services.json`: LUÔN test live thật 1 lượt trước khi để não tự gọi nó.** Không phải dịch vụ nào trong danh bạ cũng đang chạy tốt — lúc mở rộng danh sách (2026-07-08) đã gặp 4/6 dịch vụ mới thử (IPinfo, Holidays, Timezone, Exchange Rates, Codex) trả lỗi 500/502 từ chính hạ tầng của họ (vd Codex báo `ECONNREFUSED 127.0.0.1:4001` — bug phía họ, không phải do sai body). Đáng ngại hơn: có dấu hiệu ví vẫn bị trừ tiền dù call thất bại (thanh toán MPP có thể xảy ra *trước* khi biết upstream có chạy được hay không). Cách test an toàn:
+> ```bash
+> # gọi thẳng 1 endpoint bằng tempo-request, KHÔNG qua não, để xác nhận body đúng + dịch vụ còn sống:
+> tempo-request -X POST --json '<body mẫu>' --private-key <key ví test> <url dịch vụ>
+> ```
+> Chỉ thêm vào `services.json` sau khi thấy response thành công thật.
 
 ---
 

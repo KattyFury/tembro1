@@ -114,8 +114,11 @@ function loadSpend() {
 function saveSpend(s) { writeJSON(SPEND_FILE, s); }
 
 // ---------- State: bộ nhớ dịch vụ/yêu cầu đã gọi ----------
-// Dùng để đảm bảo: (1) không lặp lại nguyên văn 1 yêu cầu đã hỏi, (2) không gọi cùng 1 dịch vụ
-// quá 2 lần liên tiếp (ép tối thiểu ~1/3 số lượt phải đổi dịch vụ khác).
+// Dùng để đảm bảo: (1) không lặp lại nguyên văn 1 yêu cầu đã hỏi, (2) không gọi lại 1 dịch vụ
+// vừa mới dùng trong COOLDOWN_CALLS lượt gần nhất -- ép 3 lượt liên tiếp phải là 3 dịch vụ
+// khác nhau hoàn toàn (không chỉ chặn khi lặp y hệt 1 dịch vụ 2 lần liên tiếp, vì kiểu
+// ping-pong "Exa Search <-> Exa Answer" vẫn lọt qua rule đó).
+const COOLDOWN_CALLS = 2;
 function loadHistory() { return readJSON(HISTORY_FILE, []); }
 function saveHistory(h) { writeJSON(HISTORY_FILE, h.slice(-HISTORY_KEEP)); }
 function normReq(s) { return (s || "").toString().trim().toLowerCase(); }
@@ -123,11 +126,8 @@ function isDuplicateRequest(history, requestText) {
   const norm = normReq(requestText);
   return history.some((h) => normReq(h.request) === norm);
 }
-function cooldownServiceId(history) {
-  const n = history.length;
-  if (n < 2) return null;
-  const a = history[n - 1].serviceId, b = history[n - 2].serviceId;
-  return a === b ? a : null;
+function cooldownServiceIds(history) {
+  return new Set(history.slice(-COOLDOWN_CALLS).map((h) => h.serviceId));
 }
 function recentSummary(history) {
   return history.slice(-RECENT_CONTEXT).map((h) => `- ${h.service}: ${h.request}`).join("\n") || "(chưa có)";
@@ -318,11 +318,11 @@ async function runOnce() {
   if (active.length === 0) { console.log("[stop] Mọi dịch vụ đều đã bị gạch."); return false; }
 
   const history = loadHistory();
-  const cooldownId = cooldownServiceId(history);
-  let menu = active.filter((s) => s.id !== cooldownId);
+  const cooldownIds = cooldownServiceIds(history);
+  let menu = active.filter((s) => !cooldownIds.has(s.id));
   if (menu.length === 0) {
     menu = active;
-    if (cooldownId) console.log(`[diversity] Chỉ còn 1 dịch vụ khả dụng ("${cooldownId}"), bỏ qua rule không lặp 3 lần liên tiếp.`);
+    console.log(`[diversity] Không còn dịch vụ nào ngoài ${COOLDOWN_CALLS} lượt gần nhất, bỏ qua rule cooldown.`);
   }
 
   let decision;

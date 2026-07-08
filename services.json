@@ -60,13 +60,23 @@
     "mockBody": { "prompt": "a calm sunrise over rice terraces, watercolor" }
   },
   {
-    "id": "codex-graphql",
-    "name": "Codex (onchain data)",
+    "id": "tempo-rpc",
+    "name": "Tempo RPC",
     "method": "POST",
-    "url": "https://graph.codex.io/graphql",
+    "url": "https://rpc.mpp.tempo.xyz/",
     "priceHint": 0.001,
     "maxSpend": 0.01,
-    "bodyHint": "Onchain token data via GraphQL. Body: {\"query\": string}. Example: {\"query\": \"{ getTokenPrices(inputs: [{ address: \\\"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2\\\", networkId: 1 }]) { priceUsd address } }\"}. Pick any well-known token address/networkId.",
-    "mockBody": { "query": "{ getTokenPrices(inputs: [{ address: \"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2\", networkId: 1 }]) { priceUsd address } }" }
+    "bodyHint": "Tempo blockchain JSON-RPC call. Body: {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":string,\"params\":array}. Pick any read-only method like eth_blockNumber, eth_chainId, or eth_gasPrice.",
+    "mockBody": { "jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": [] }
+  },
+  {
+    "id": "mapbox-geocode",
+    "name": "Mapbox Geocode",
+    "method": "POST",
+    "url": "https://mapbox.mpp.paywithlocus.com/mapbox/geocode-forward",
+    "priceHint": 0.004,
+    "maxSpend": 0.02,
+    "bodyHint": "Forward geocode an address/place name to coordinates. Body: {\"q\": string}. Use any real place name or landmark.",
+    "mockBody": { "q": "Ben Thanh Market, Ho Chi Minh City" }
   }
 ]
