@@ -55,8 +55,12 @@ const ACTIVE_END_MIN = ACTIVE_END_HOUR * 60;
 const MIN_GAP_MIN = 45;            // 2 lượt cách nhau tối thiểu 45 phút
 const MIN_DAILY_RUNS = Number(process.env.MIN_DAILY_RUNS || "0");   // 1 ngày có thể 0 lượt
 const MAX_DAILY_RUNS = Number(process.env.MAX_DAILY_RUNS || "10");
-const HISTORY_KEEP = 300;          // giữ tối đa 300 dòng lịch sử (đủ để chống trùng lâu dài)
+const HISTORY_KEEP = 300;          // giữ tối đa 300 dòng lịch sử
 const RECENT_CONTEXT = 20;         // số dòng gần nhất đưa vào prompt cho não tránh lặp
+const DEDUP_WINDOW = 15;           // chỉ chặn lặp trong N yêu cầu GẦN NHẤT (không cấm 1 chủ đề vĩnh
+                                   // viễn -- nếu so với toàn bộ history thì với vài dịch vụ + não
+                                   // ít sáng tạo, không gian câu "an toàn" cạn dần -> mọi đề xuất
+                                   // đều trùng -> skip mãi, bot đứng hình. Cửa sổ trượt phá deadlock đó.)
 
 const services = JSON.parse(fs.readFileSync(path.join(__dir, "services.json"), "utf8"));
 
@@ -124,7 +128,7 @@ function saveHistory(h) { writeJSON(HISTORY_FILE, h.slice(-HISTORY_KEEP)); }
 function normReq(s) { return (s || "").toString().trim().toLowerCase(); }
 function isDuplicateRequest(history, requestText) {
   const norm = normReq(requestText);
-  return history.some((h) => normReq(h.request) === norm);
+  return history.slice(-DEDUP_WINDOW).some((h) => normReq(h.request) === norm);
 }
 function cooldownServiceIds(history) {
   return new Set(history.slice(-COOLDOWN_CALLS).map((h) => h.serviceId));
@@ -132,6 +136,22 @@ function cooldownServiceIds(history) {
 function recentSummary(history) {
   return history.slice(-RECENT_CONTEXT).map((h) => `- ${h.service}: ${h.request}`).join("\n") || "(chưa có)";
 }
+
+// Gieo 1 chủ đề ngẫu nhiên vào prompt mỗi lượt để não bớt hội tụ về vài câu "an toàn" lặp đi lặp
+// lại (bug cũ: cứ geocode Eiffel Tower cả tuần). Chỉ là gợi ý mềm, não tự uốn cho hợp dịch vụ.
+const SEED_TOPICS = [
+  "renewable energy", "ancient history", "marine biology", "space exploration",
+  "culinary traditions", "modern architecture", "machine learning", "classical music",
+  "volcanoes", "urban planning", "wildlife conservation", "cryptography",
+  "coffee culture", "mountaineering", "linguistics", "electric vehicles",
+  "coral reefs", "photography", "sustainable farming", "quantum physics",
+  "medieval castles", "jazz history", "robotics", "desert ecosystems",
+  "typography", "public health", "aviation", "geology",
+  "street food", "renaissance art", "cybersecurity", "national parks",
+  "astronomy", "textile crafts", "hydropower", "paleontology",
+  "board games", "tea ceremonies", "famous bridges", "world folklore",
+];
+function pickSeedTopic() { return SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)]; }
 
 // ---------- State: kế hoạch giờ chạy ngẫu nhiên trong ngày ----------
 // Mỗi ngày tự chọn N lượt (MIN_DAILY_RUNS..MAX_DAILY_RUNS, có thể là 0) + N mốc giờ ngẫu nhiên
@@ -220,7 +240,8 @@ Rules:
 - Never repeat a request that appears in "Recently used requests" — pick a genuinely different topic, query, or target every time.
 - Return ONLY a compact JSON object, no prose, of the form:
 {"serviceId":"<id>","body":{...},"note":"<short human summary of what you asked, <=8 words>"}`;
-  const user = `Available services:\n${menuText}\n\nRecently used requests (do NOT repeat any of these):\n${recentSummary(history)}${avoidHint ? "\n\n" + avoidHint : ""}\n\nPick one and produce the JSON now.`;
+  const seed = pickSeedTopic();
+  const user = `Available services:\n${menuText}\n\nRecently used requests (do NOT repeat any of these):\n${recentSummary(history)}\n\nFor variety this turn, lean your request loosely toward this theme (adapt it sensibly to whichever service you pick): "${seed}".${avoidHint ? "\n\n" + avoidHint : ""}\n\nPick one and produce the JSON now.`;
 
   if (MODE === "mock") {
     const s = menu[Math.floor(Math.random() * menu.length)];
